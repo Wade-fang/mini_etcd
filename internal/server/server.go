@@ -1,13 +1,44 @@
-package register
+package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
-	"z.cn/RaftImpl/model"
+	"net/rpc"
+
+	"z.cn/RaftImpl/internal/model"
+	"z.cn/RaftImpl/internal/raft"
+	"z.cn/RaftImpl/internal/store"
 )
 
-func putHandler(writer http.ResponseWriter, request *http.Request) {
+type Server struct {
+	Raft  *raft.Raft
+	Store *store.Store
+}
+
+func New(r *raft.Raft, s *store.Store) *Server {
+	return &Server{
+		Raft:  r,
+		Store: s,
+	}
+}
+
+func (s *Server) Start(addr string) error {
+	// Add put method
+	http.HandleFunc("/put", s.putHandler)
+	// get method
+	http.HandleFunc("/get", s.getHandler)
+
+	// Register Raft service for RPC
+	rpc.Register(s.Raft)
+	rpc.HandleHTTP()
+
+	fmt.Println("start rpc server at", addr)
+	return http.ListenAndServe(addr, nil)
+}
+
+func (s *Server) putHandler(writer http.ResponseWriter, request *http.Request) {
 	msg := model.ResponseBody{
 		Code: 400,
 		Msg:  "request method error",
@@ -27,8 +58,14 @@ func putHandler(writer http.ResponseWriter, request *http.Request) {
 		}
 		rb.Method = http.MethodPut
 		rb.IsPutLog = true
-		register.tmpLog <- &rb
-		go register.sendLogReplication(rb)
+
+		// Call Raft Propose
+		// Note: Original code used a channel (tmpLog) and a goroutine.
+		// We use direct call now, but Propose currently assumes Leader and sends RPCs synchronously.
+		// This might block the HTTP request, which is actually BETTER for consistency than the original,
+		// but still naive.
+		go s.Raft.Propose(rb)
+
 		msg.Code = 200
 		msg.Msg = "success"
 		result, err := json.Marshal(&msg)
@@ -46,7 +83,7 @@ func putHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func getHandler(writer http.ResponseWriter, request *http.Request) {
+func (s *Server) getHandler(writer http.ResponseWriter, request *http.Request) {
 	msg := model.ResponseBody{
 		Code: 400,
 		Msg:  "request method error",
@@ -54,7 +91,7 @@ func getHandler(writer http.ResponseWriter, request *http.Request) {
 	if request.Method == http.MethodGet {
 		values := request.URL.Query()
 		key := values.Get("key")
-		v, err := register.store.Get(model.RequestBody{Method: http.MethodGet, Key: key})
+		v, err := s.Store.Get(model.RequestBody{Method: http.MethodGet, Key: key})
 		if err != nil {
 			msg.Msg = err.Error()
 			result, _ := json.Marshal(&msg)

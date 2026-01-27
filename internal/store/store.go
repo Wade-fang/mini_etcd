@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"z.cn/RaftImpl/model"
-	"z.cn/RaftImpl/util"
+	"z.cn/RaftImpl/internal/model"
+	"z.cn/RaftImpl/internal/util"
 )
 
 const key = "killllllllllllll" //16位
@@ -27,7 +27,7 @@ type Store struct {
 	mx          sync.RWMutex
 }
 
-//初始化数据存储，打开日志命令
+// 初始化数据存储，打开日志命令
 func NewStore(filename string) (*Store, error) {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
