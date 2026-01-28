@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -13,14 +14,16 @@ import (
 )
 
 type Server struct {
-	Raft  *raft.Raft
-	Store *store.Store
+	Raft       *raft.Raft
+	Store      *store.Store
+	HttpServer *http.Server
 }
 
-func New(r *raft.Raft, s *store.Store) *Server {
+func New(r *raft.Raft, s *store.Store, addr string) *Server {
 	return &Server{
-		Raft:  r,
-		Store: s,
+		Raft:       r,
+		Store:      s,
+		HttpServer: &http.Server{Addr: addr},
 	}
 }
 
@@ -34,8 +37,10 @@ func (s *Server) Start(addr string) error {
 	rpc.Register(s.Raft)
 	rpc.HandleHTTP()
 
+	s.Raft.Start()
+
 	fmt.Println("start rpc server at", addr)
-	return http.ListenAndServe(addr, nil)
+	return s.HttpServer.ListenAndServe()
 }
 
 func (s *Server) putHandler(writer http.ResponseWriter, request *http.Request) {
@@ -110,4 +115,11 @@ func (s *Server) getHandler(writer http.ResponseWriter, request *http.Request) {
 		}
 		writer.Write(data)
 	}
+}
+
+func (s *Server) Close(ctx context.Context) {
+	if err := s.HttpServer.Shutdown(ctx); err != nil {
+		fmt.Println("服务关闭失败,", err)
+	}
+	fmt.Println("服务已关闭")
 }

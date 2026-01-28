@@ -58,6 +58,7 @@ func (t *Transport) retryFailedNodes() {
 		select {
 		case node := <-t.failedNode:
 			time.Sleep(500 * time.Millisecond)
+			fmt.Println("trying to reconnect:", node.Name)
 			t.Connect(node)
 		}
 	}

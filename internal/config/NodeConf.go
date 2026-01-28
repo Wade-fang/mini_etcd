@@ -5,8 +5,8 @@ import (
 	ini "gopkg.in/ini.v1"
 )
 
-func GetCurrentConfig() (name, addr string, err error) {
-	cfg, openerr := ini.Load("./conf/server.ini")
+func GetCurrentConfig(configString string) (name, addr string, err error) {
+	cfg, openerr := ini.Load(configString)
 	if openerr != nil {
 		fmt.Println("fialed open server.ini ,err", openerr)
 	}
@@ -15,8 +15,8 @@ func GetCurrentConfig() (name, addr string, err error) {
 	return name, addr, openerr
 }
 
-func GetClusterConfig() (name, addr []string, err error) {
-	cfg, openerr := ini.Load("./conf/server.ini")
+func GetClusterConfig(configString string) (name, addr []string, err error) {
+	cfg, openerr := ini.Load(configString)
 	if openerr != nil {
 		fmt.Println("fialed open server.ini ,err", openerr)
 	}
